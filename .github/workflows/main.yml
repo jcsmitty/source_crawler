@@ -1,9 +1,9 @@
-name: Crawl sources -> Feed
+name: Crawl sources -> Feed (fast + live logs)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/20 * * * *"  # every 20 minutes
+    - cron: "*/30 * * * *"
 
 jobs:
   crawl:
@@ -23,7 +23,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml gspread google-auth
 
-      # Cache state so dedupe + ETag/Last-Modified persist between runs
       - name: Restore crawler state (sqlite)
         uses: actions/cache@v4
         with:
@@ -37,26 +36,27 @@ jobs:
           SHEET_ID: ${{ secrets.SHEET_ID }}
           GOOGLE_SA_JSON_B64: ${{ secrets.GOOGLE_SA_JSON_B64 }}
 
-          # Tabs
           WORKSHEET_MOVIES: "Movies"
           WORKSHEET_SOURCES: "Sources"
           WORKSHEET_FEED: "Feed"
 
-          # Sensible target knobs
-          MIN_DOMAIN_DELAY: "2.5"
-          MAX_NEXT_PAGES_REVIEW: "10"
-          MAX_NEXT_PAGES_AUTHOR: "6"
+          # speed/politeness knobs
+          MIN_DOMAIN_DELAY: "2.0"
+          MAX_NEXT_PAGES_REVIEW: "8"
+          MAX_NEXT_PAGES_AUTHOR: "5"
           MAX_NEXT_PAGES_HOME: "1"
-          SITEMAP_TTL_HOURS: "24"
-          SITEMAP_RECENT_DAYS: "14"
-          MAX_NEW_PER_RUN: "2000"
 
-          # Optional override
-          USER_AGENT: "RTReviewFeedCrawler/2.1 (polite; contact: you@example.com)"
+          # live status
+          STATUS_EVERY_S: "15"
+
+          # article concurrency + budget
+          ARTICLE_WORKERS: "4"
+          MAX_ARTICLE_FETCHES_PER_RUN: "500"
+          REQUIRE_MOVIE_IN_ANCHOR_BEFORE_FETCH: "true"
+
+          USER_AGENT: "RTReviewFeedCrawler/2.2 (polite; contact: you@example.com)"
         run: |
-          python crawl_to_sheet.py \
-            --db crawler_state.sqlite \
-            --max-new-per-run 2000
+          python crawl_to_sheet.py --db crawler_state.sqlite --max-new-per-run 2000
 
       - name: Save crawler state (sqlite)
         uses: actions/cache@v4
